@@ -9,7 +9,9 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface FoodRepository extends JpaRepository<Food, Long> {
 
-List<Food> findByAvailableTrue();
+    List<Food> findByAvailableTrue();
 
-Optional<Food> findByIdAndAvailableTrue(Long id);
+    Optional<Food> findByIdAndAvailableTrue(Long id);
+
+    List<Food> findByRestaurant_IdAndAvailableTrue(Long restaurantId);
 }

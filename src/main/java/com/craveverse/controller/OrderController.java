@@ -1,3 +1,4 @@
+
 package com.craveverse.controller;
 
 import com.craveverse.entity.Food;
@@ -19,12 +20,13 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/orders")
 @CrossOrigin(
-    origins = "http://localhost:5173",
-    allowCredentials = "true"
+        origins = "http://localhost:5173",
+        allowCredentials = "true"
 )
 public class OrderController {
 
@@ -51,7 +53,9 @@ public class OrderController {
 
         HttpSession session = httpRequest.getSession(false);
 
-        if (session == null || session.getAttribute("customerId") == null) {
+        if (session == null
+                || session.getAttribute("customerId") == null) {
+
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of(
                             "message",
@@ -75,7 +79,8 @@ public class OrderController {
                     .body("Please provide valid customer details and order items.");
         }
 
-        var customer = customerRepository.findById(customerId).orElse(null);
+        var customer =
+                customerRepository.findById(customerId).orElse(null);
 
         if (customer == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -87,7 +92,7 @@ public class OrderController {
 
         Order order = new Order();
 
-        // Always associate the order with the logged-in customer
+        // Associate the order with the logged-in customer.
         order.setCustomer(customer);
         order.setCustomerName(customer.getName());
         order.setPhone(request.getPhone());
@@ -106,18 +111,21 @@ public class OrderController {
                         .body("Each item must have a valid food ID and positive quantity.");
             }
 
-            Food food = foodRepository.findById(requestedItem.getFoodId())
+            Food food = foodRepository
+                    .findById(requestedItem.getFoodId())
                     .orElse(null);
 
             if (food == null) {
                 return ResponseEntity.badRequest()
-                        .body("Food not found: " + requestedItem.getFoodId());
+                        .body("Food not found: "
+                                + requestedItem.getFoodId());
             }
 
             BigDecimal price = BigDecimal.valueOf(food.getPrice())
                     .setScale(2, RoundingMode.HALF_UP);
 
             OrderItem item = new OrderItem();
+
             item.setFood(food);
             item.setFoodName(food.getName());
             item.setQuantity(requestedItem.getQuantity());
@@ -131,11 +139,13 @@ public class OrderController {
             total = total.add(itemTotal);
         }
 
-        order.setTotalAmount(total.setScale(2, RoundingMode.HALF_UP));
+        order.setTotalAmount(
+                total.setScale(2, RoundingMode.HALF_UP));
 
         Order savedOrder = orderRepository.save(order);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(savedOrder);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(savedOrder);
     }
 
     // Return only the logged-in customer's orders
@@ -146,7 +156,9 @@ public class OrderController {
 
         HttpSession session = httpRequest.getSession(false);
 
-        if (session == null || session.getAttribute("customerId") == null) {
+        if (session == null
+                || session.getAttribute("customerId") == null) {
+
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of(
                             "message",
@@ -162,27 +174,56 @@ public class OrderController {
 
         return ResponseEntity.ok(orders);
     }
-    // Return all orders to authenticated administrators only
-@GetMapping("/admin")
-@Transactional(readOnly = true)
-public ResponseEntity<?> getAllOrdersForAdmin(
-        HttpServletRequest httpRequest) {
 
-    HttpSession session = httpRequest.getSession(false);
+    // Return all orders to authenticated administrators
+    @GetMapping("/admin")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getAllOrdersForAdmin(
+            HttpServletRequest httpRequest) {
 
-    if (session == null
-            || !Boolean.TRUE.equals(session.getAttribute("isAdmin"))) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of(
-                        "message",
-                        "Administrator access is required to view all orders."
-                ));
+        HttpSession session = httpRequest.getSession(false);
+
+        if (session == null
+                || !Boolean.TRUE.equals(
+                        session.getAttribute("isAdmin"))) {
+
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of(
+                            "message",
+                            "Administrator access is required to view all orders."
+                    ));
+        }
+
+        List<AdminOrderResponse> orders = orderRepository.findAll()
+                .stream()
+                .map(order -> new AdminOrderResponse(
+                        order.getId(),
+                        order.getCustomerName(),
+                        order.getPhone(),
+                        order.getAddress(),
+                        order.getTotalAmount(),
+                        order.getStatus(),
+                        order.getCreatedAt(),
+                        order.getItems()
+                                .stream()
+                                .map(item -> {
+                                    Food food = item.getFood();
+
+                                    return new AdminOrderResponse
+                                            .AdminOrderItemResponse(
+                                                    item.getId(),
+                                                    food.getId(),
+                                                    item.getFoodName(),
+                                                    item.getQuantity(),
+                                                    item.getPrice()
+                                            );
+                                })
+                                .collect(Collectors.toList())
+                ))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(orders);
     }
-
-    List<Order> orders = orderRepository.findAll();
-
-    return ResponseEntity.ok(orders);
-}
 
     // Return an individual order only if it belongs to the logged-in customer
     @GetMapping("/{id}")
@@ -193,7 +234,9 @@ public ResponseEntity<?> getAllOrdersForAdmin(
 
         HttpSession session = httpRequest.getSession(false);
 
-        if (session == null || session.getAttribute("customerId") == null) {
+        if (session == null
+                || session.getAttribute("customerId") == null) {
+
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of(
                             "message",
@@ -207,83 +250,94 @@ public ResponseEntity<?> getAllOrdersForAdmin(
         return orderRepository.findOrderWithItemsById(id)
                 .filter(order ->
                         order.getCustomer() != null
-                        && order.getCustomer().getId().equals(customerId))
+                        && order.getCustomer()
+                                .getId()
+                                .equals(customerId))
                 .<ResponseEntity<?>>map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // Temporarily disable order status updates until admin authorization exists
-   @PutMapping("/{id}/status")
-@Transactional
-public ResponseEntity<?> updateOrderStatus(
-        @PathVariable Long id,
-        @RequestBody Map<String, String> request,
-        HttpServletRequest httpRequest) {
+    // Update order status for authenticated administrators
+    @PutMapping("/{id}/status")
+    @Transactional
+    public ResponseEntity<?> updateOrderStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request,
+            HttpServletRequest httpRequest) {
 
-    // Block requests until administrator authentication is implemented.
-    HttpSession session = httpRequest.getSession(false);
+        HttpSession session = httpRequest.getSession(false);
 
-    if (session == null
-            || !Boolean.TRUE.equals(session.getAttribute("isAdmin"))) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of(
-                    "message",
-                    "Administrator access is required to update order status."
-                ));
+        if (session == null
+                || !Boolean.TRUE.equals(
+                        session.getAttribute("isAdmin"))) {
+
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of(
+                            "message",
+                            "Administrator access is required to update order status."
+                    ));
+        }
+
+        String newStatus = request.get("status");
+
+        List<String> allowedStatuses = List.of(
+                "PLACED",
+                "CONFIRMED",
+                "PREPARING",
+                "OUT_FOR_DELIVERY",
+                "DELIVERED",
+                "CANCELLED"
+        );
+
+        if (newStatus == null
+                || !allowedStatuses.contains(newStatus)) {
+
+            return ResponseEntity.badRequest()
+                    .body(Map.of(
+                            "message",
+                            "Invalid order status."
+                    ));
+        }
+
+        Order order = orderRepository.findById(id).orElse(null);
+
+        if (order == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        String currentStatus = order.getStatus();
+
+        Map<String, List<String>> transitions = Map.of(
+                "PLACED", List.of("CONFIRMED", "CANCELLED"),
+                "CONFIRMED", List.of("PREPARING", "CANCELLED"),
+                "PREPARING", List.of("OUT_FOR_DELIVERY", "CANCELLED"),
+                "OUT_FOR_DELIVERY", List.of("DELIVERED"),
+                "DELIVERED", List.of(),
+                "CANCELLED", List.of()
+        );
+
+        if (!transitions.getOrDefault(currentStatus, List.of())
+                .contains(newStatus)) {
+
+            return ResponseEntity.badRequest()
+                    .body(Map.of(
+                            "message",
+                            "Cannot change status from "
+                                    + currentStatus
+                                    + " to "
+                                    + newStatus
+                                    + "."
+                    ));
+        }
+
+        order.setStatus(newStatus);
+
+        Order savedOrder = orderRepository.save(order);
+
+        return ResponseEntity.ok(Map.of(
+                "id", savedOrder.getId(),
+                "status", savedOrder.getStatus(),
+                "message", "Order status updated successfully."
+        ));
     }
-
-    String newStatus = request.get("status");
-
-    List<String> allowedStatuses = List.of(
-            "PLACED",
-            "CONFIRMED",
-            "PREPARING",
-            "OUT_FOR_DELIVERY",
-            "DELIVERED",
-            "CANCELLED"
-    );
-
-    if (newStatus == null || !allowedStatuses.contains(newStatus)) {
-        return ResponseEntity.badRequest()
-                .body(Map.of("message", "Invalid order status."));
-    }
-
-    Order order = orderRepository.findById(id).orElse(null);
-
-    if (order == null) {
-        return ResponseEntity.notFound().build();
-    }
-
-    String currentStatus = order.getStatus();
-
-    Map<String, List<String>> transitions = Map.of(
-            "PLACED", List.of("CONFIRMED", "CANCELLED"),
-            "CONFIRMED", List.of("PREPARING", "CANCELLED"),
-            "PREPARING", List.of("OUT_FOR_DELIVERY", "CANCELLED"),
-            "OUT_FOR_DELIVERY", List.of("DELIVERED"),
-            "DELIVERED", List.of(),
-            "CANCELLED", List.of()
-    );
-
-    if (!transitions.getOrDefault(currentStatus, List.of())
-            .contains(newStatus)) {
-        return ResponseEntity.badRequest()
-                .body(Map.of(
-                    "message",
-                    "Cannot change status from " + currentStatus
-                            + " to " + newStatus + "."
-                ));
-    }
-
-order.setStatus(newStatus);
-
-Order savedOrder = orderRepository.save(order);
-
-return ResponseEntity.ok(Map.of(
-        "id", savedOrder.getId(),
-        "status", savedOrder.getStatus(),
-        "message", "Order status updated successfully."
-));
-    
-}
 }
