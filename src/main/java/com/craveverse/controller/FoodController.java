@@ -1,4 +1,3 @@
-
 package com.craveverse.controller;
 
 import com.craveverse.entity.Food;
@@ -12,7 +11,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/foods")
-@CrossOrigin(origins = "http://localhost:5173")
 public class FoodController {
 
     private final FoodRepository foodRepository;
@@ -21,16 +19,16 @@ public class FoodController {
         this.foodRepository = foodRepository;
     }
 
-   @GetMapping
-public List<Food> getAllFoods() {
-    return foodRepository.findByAvailableTrue();
-}
+    @GetMapping
+    public List<Food> getAllFoods() {
+        return foodRepository.findByAvailableTrue();
+    }
 
     @GetMapping("/{id}")
-public Food getFoodById(@PathVariable Long id) {
-    return foodRepository.findByIdAndAvailableTrue(id)
-            .orElse(null);
-}
+    public Food getFoodById(@PathVariable Long id) {
+        return foodRepository.findByIdAndAvailableTrue(id)
+                .orElse(null);
+    }
 
     @PostMapping
     public Food addFood(

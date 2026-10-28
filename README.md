@@ -63,7 +63,17 @@ The following endpoints describe the application's main API routes. Some endpoin
 | GET | `/api/orders/admin` | Retrieve all orders (admin access required) |
 | PUT | `/api/orders/{orderId}/status` | Update an order's status, subject to authorization |
 
-**Note:** Verify the HTTP method and request-body requirements for the order creation and status-update endpoints against the current controller implementation.
+Order creation uses `POST /api/orders` with a customer session. An administrator session cannot read or create customer orders. Administrator order access and status changes are checked on the server.
+
+### Authentication APIs
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/auth/register` | Create a customer account |
+| POST | `/api/auth/customer/login` | Start a customer session |
+| POST | `/api/auth/admin/login` | Start an administrator session using the configured admin credentials |
+| GET | `/api/auth/me` | Return the role for the current session |
+| POST | `/api/auth/logout` | End the current session |
 
 ## 🚀 Getting Started
 
@@ -109,6 +119,15 @@ export DB_PASSWORD='your_mysql_password'
 ```
 
 Replace the example value with your local MySQL password. Do not commit real passwords or secret files to GitHub.
+
+Set administrator credentials in the same terminal before starting the backend. The administrator email defaults to `upparmanju243@gmail.com`; set `ADMIN_EMAIL` to use a different one. `ADMIN_PASSWORD` has no default, so administrator sign-in remains disabled until you set it.
+
+```bash
+export ADMIN_EMAIL='admin@example.com'
+export ADMIN_PASSWORD='choose-a-strong-password'
+```
+
+The administrator password is read only by the backend and is never stored in MySQL or returned to the frontend. Customer registration cannot claim the configured administrator email.
 
 ### 4. Start the backend
 

@@ -1,4 +1,3 @@
-
 package com.craveverse.controller;
 
 import com.craveverse.entity.Food;
@@ -7,14 +6,12 @@ import com.craveverse.entity.OrderItem;
 import com.craveverse.entity.OrderRepository;
 import com.craveverse.repository.CustomerRepository;
 import com.craveverse.repository.FoodRepository;
-
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -24,10 +21,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/orders")
-@CrossOrigin(
-        origins = "http://localhost:5173",
-        allowCredentials = "true"
-)
 public class OrderController {
 
     private final OrderRepository orderRepository;
@@ -54,7 +47,8 @@ public class OrderController {
         HttpSession session = httpRequest.getSession(false);
 
         if (session == null
-                || session.getAttribute("customerId") == null) {
+                || session.getAttribute("customerId") == null
+                || Boolean.TRUE.equals(session.getAttribute("isAdmin"))) {
 
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of(
@@ -112,13 +106,15 @@ public class OrderController {
             }
 
             Food food = foodRepository
-                    .findById(requestedItem.getFoodId())
+                    .findByIdAndAvailableTrue(requestedItem.getFoodId())
                     .orElse(null);
 
             if (food == null) {
                 return ResponseEntity.badRequest()
-                        .body("Food not found: "
-                                + requestedItem.getFoodId());
+                        .body(Map.of(
+                                "message",
+                                "This food item is no longer available. Please refresh your menu."
+                        ));
             }
 
             BigDecimal price = BigDecimal.valueOf(food.getPrice())
@@ -157,7 +153,8 @@ public class OrderController {
         HttpSession session = httpRequest.getSession(false);
 
         if (session == null
-                || session.getAttribute("customerId") == null) {
+                || session.getAttribute("customerId") == null
+                || Boolean.TRUE.equals(session.getAttribute("isAdmin"))) {
 
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of(
@@ -235,7 +232,8 @@ public class OrderController {
         HttpSession session = httpRequest.getSession(false);
 
         if (session == null
-                || session.getAttribute("customerId") == null) {
+                || session.getAttribute("customerId") == null
+                || Boolean.TRUE.equals(session.getAttribute("isAdmin"))) {
 
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of(
